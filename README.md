@@ -10,8 +10,9 @@ text[i]  --ord()-->  paint_seed  --(skin[i], seed)-->  image[i]  -->  contact sh
 
 ## 安装
 
+在仓库根目录运行：
+
 ```bash
-cd ASCounterStrikeII
 uv sync
 ```
 

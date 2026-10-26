@@ -30,7 +30,7 @@ FLAG = "GWHT{CS_1s_th3_bes7_FP5_G@ME}"
 ATT = Path(
     os.environ.get(
         "SKIN_SECRET_ATT",
-        Path(__file__).resolve().parent.parent / "skin secret" / "att" / "extracted",
+        Path(__file__).resolve().parents[2] / "skin secret" / "att" / "extracted",
     )
 )
 
