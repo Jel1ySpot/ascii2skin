@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+out/
+out_*/
+.pytest_cache/
+.ruff_cache/
+skin secret/
