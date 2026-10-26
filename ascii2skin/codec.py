@@ -195,6 +195,13 @@ def _mae(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.abs(a.astype(np.int16) - b.astype(np.int16)).mean())
 
 
+def _is_blank_cell(cell: Image.Image, bg) -> bool:
+    """True when a sheet cell is untouched background (empty trailing cell)."""
+    arr = np.asarray(cell.convert("RGB"), dtype=np.int16)
+    ref = np.array(bg, dtype=np.int16)
+    return bool(np.all(np.abs(arr - ref) <= 1))
+
+
 def decode_tile(
     img: Image.Image,
     skin: Skin,
@@ -289,35 +296,69 @@ def decode_sheet(
         cols = cols or meta["cols"]
         tile = tile or tuple(meta["tile"])
         gap = gap if gap is not None else meta["gap"]
+        bg = tuple(meta["bg"])
         skin_by_key = {s.key: s for s in skins}
         skin_seq = [skin_by_key.get(k) for k in meta["skins"]]
         if any(s is None for s in skin_seq):
             raise RuntimeError("sheet references skins not present in the provided skin list")
         n = meta["count"]
     else:
-        if cols is None or tile is None:
-            raise RuntimeError(
-                "no ascii2skin metadata in this PNG; pass --cols and --tile explicitly"
-            )
-        gap = 8 if gap is None else gap
-        n = None
+        gap = 8 if gap is None else int(gap)
+        bg = BG
         skin_seq = None
+        n = None
+
+        # Match the encoder default: 6 columns when the PNG has no metadata.
+        if cols is None and tile is None:
+            cols = 6
+        if cols is not None and cols <= 0:
+            raise RuntimeError("--cols must be a positive integer")
+
+        if tile is None:
+            # Infer the cell width from the sheet width, subtracting the gaps,
+            # then use the encoder's default 3:2 cell aspect for the height.
+            usable = im.width - (cols + 1) * gap
+            if usable <= 0:
+                raise RuntimeError(
+                    f"cannot infer tile size from width={im.width}, "
+                    f"cols={cols}, gap={gap}"
+                )
+            tw = max(1, round(usable / cols))
+            th = max(1, round(tw * 2 / 3))
+            tile = (tw, th)
+        elif cols is None:
+            tw, th = tile
+            cols = max(1, (im.width - gap) // (tw + gap))
+        else:
+            cols = int(cols)
+
+        cols = int(cols)
 
     tw, th = tile
+    if tw <= 0 or th <= 0:
+        raise RuntimeError("tile size must use positive width and height")
     gap = int(gap)
+
     if n is None:
-        per_row = (im.width - gap) // (tw + gap)
         rows = (im.height - gap) // (th + gap)
-        n = per_row * rows
-        cols = per_row
+        if rows <= 0:
+            raise RuntimeError(
+                f"cannot determine rows from height={im.height}, tile={tile}, gap={gap}"
+            )
+        n_cells = cols * rows
+    else:
+        n_cells = n
 
     out: list[DecodedChar] = []
-    for k in range(n):
+    for k in range(n_cells):
         r, c = divmod(k, cols)
         x = gap + c * (tw + gap)
         y = gap + r * (th + gap)
         cell = im.crop((x, y, x + tw, y + th))
-        skin = skin_seq[k] if skin_seq else skins[k % len(skins)]
+        if n is None and _is_blank_cell(cell, bg):
+            break
+        index = len(out)
+        skin = skin_seq[index] if skin_seq else skins[index % len(skins)]
         seed, mae = decode_tile(cell, skin, provider, tile_size=(tw, th))
-        out.append(DecodedChar(k, chr(seed), seed, skin, mae))
+        out.append(DecodedChar(index, chr(seed), seed, skin, mae))
     return out

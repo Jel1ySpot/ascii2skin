@@ -32,6 +32,12 @@ out/raw/01.png ... # 每个字符一张原图
 out/manifest.json  # 明文、seed、布局
 ```
 
+没有 `ascii2skin` 元数据时默认按 6 列处理：
+
+```bash
+uv run ascii2skin decode sheet.png
+```
+
 默认 `auto`：找到完整的本地图库就用真实皮肤渲染图，否则用程序化渲染补齐缺失的 Seed。整个过程完全离线。
 
 查看本地图库覆盖情况：

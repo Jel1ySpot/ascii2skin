@@ -227,9 +227,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     d = sub.add_parser("decode", help="decode a composed sheet.png")
     d.add_argument("image")
-    d.add_argument("--cols", type=int)
-    d.add_argument("--tile", type=_tile)
-    d.add_argument("--gap", type=int)
+    d.add_argument(
+        "--cols",
+        type=int,
+        help=(
+            "images per row (default: 6 when the PNG has no layout metadata); "
+            "tile width is inferred when --tile is omitted"
+        ),
+    )
+    d.add_argument(
+        "--tile",
+        type=_tile,
+        help="cell size WxH; inferred from --cols and 3:2 aspect when omitted",
+    )
+    d.add_argument("--gap", type=int, help="cell gap in pixels (default: 8)")
     common(d)
     d.set_defaults(func=cmd_decode)
 

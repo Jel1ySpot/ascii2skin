@@ -44,6 +44,38 @@ def test_procedural_roundtrip(tmp_path: Path) -> None:
     assert all(d.mae < 1e-9 for d in decoded)
 
 
+def test_decode_sheet_infers_tile_from_cols(tmp_path: Path) -> None:
+    """Without PNG metadata, --cols alone infers tile size and skips blank cells."""
+    provider = ProceduralProvider()
+    text = "Az9!"
+    save(text, tmp_path, provider=provider, raw=True, cols=3)
+
+    # Re-save without the ascii2skin PNG text chunk, like the GZCTF container's
+    # sheet_clean.png.
+    with Image.open(tmp_path / "sheet.png") as src:
+        clean = Image.new("RGB", src.size)
+        clean.paste(src.convert("RGB"))
+    clean.save(tmp_path / "clean.png")
+
+    decoded = decode_sheet(tmp_path / "clean.png", provider, cols=3)
+    assert "".join(d.char for d in decoded) == text
+
+
+def test_decode_sheet_defaults_to_six_cols(tmp_path: Path) -> None:
+    """A metadata-less sheet decodes with the encoder's default six columns."""
+    provider = ProceduralProvider()
+    text = "Az9!xyz"
+    save(text, tmp_path, provider=provider, raw=True, cols=6)
+
+    with Image.open(tmp_path / "sheet.png") as src:
+        clean = Image.new("RGB", src.size)
+        clean.paste(src.convert("RGB"))
+    clean.save(tmp_path / "clean.png")
+
+    decoded = decode_sheet(tmp_path / "clean.png", provider)
+    assert "".join(d.char for d in decoded) == text
+
+
 def test_refs_provider_discriminates_all_seeds(tmp_path: Path) -> None:
     """A file-backed provider must pick the right seed out of all 95."""
     paint = ProceduralProvider()
